@@ -1,11 +1,17 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
   <component name="ContentModelStore">
-    <e p="C:\Users\misch\.Rider2019.1\system\extResources" t="IncludeRecursive" />
-    <e p="C:\Users\misch\.Rider2019.1\system\resharper-host\local\Transient\ReSharperHost\v191\SolutionCaches\_Lecture2.-1741615289.00" t="ExcludeRecursive" />
-    <e p="C:\Users\misch\ForGit\CG\Lectures\Lecture2" t="IncludeRecursive">
+    <e p="$USER_HOME$/.Rider2019.2/system/extResources" t="IncludeRecursive" />
+    <e p="$USER_HOME$/.Rider2019.2/system/resharper-host/local/Transient/ReSharperHost/v192/SolutionCaches/_Lecture2.628745920.00" t="ExcludeRecursive" />
+    <e p="$PROJECT_DIR$" t="IncludeRecursive">
+      <e p="Assembly-CSharp-firstpass.csproj" t="IncludeRecursive" />
       <e p="Assembly-CSharp.csproj" t="IncludeRecursive" />
       <e p="Assets" t="Include">
+        <e p="Plugins" t="Include">
+          <e p="Scripts" t="Include">
+            <e p="SimpleCameraController.cs" t="Include" />
+          </e>
+        </e>
         <e p="Scripts" t="Include">
           <e p="MarchingCubes.Tables.cs" t="Include" />
           <e p="MeshGenerator.cs" t="Include" />
@@ -13,9 +19,9 @@
         </e>
       </e>
       <e p="Lecture2.sln" t="IncludeFlat" />
+      <e p="Temp/bin" t="ExcludeRecursive" />
       <e p="obj" t="ExcludeRecursive" />
-      <e p="Packages" t="ExcludeRecursive" />
-      <e p="Temp\bin" t="ExcludeRecursive" />
+      <e p="packages" t="ExcludeRecursive" />
     </e>
   </component>
 </project>

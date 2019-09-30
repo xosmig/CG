@@ -1,12 +1,17 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
+using Unity.Mathematics;
 using UnityEngine;
+using UnityEngine.Assertions;
+using Random = System.Random;
 
 [RequireComponent(typeof(MeshFilter))]
 public class MeshGenerator : MonoBehaviour
 {
     private MeshFilter _filter;
     private Mesh _mesh;
+    private List<Vector3> _centerPoints;
 
     /// <summary>
     /// Executed by Unity upon object initialization. <see cref="https://docs.unity3d.com/Manual/ExecutionOrder.html"/>
@@ -16,6 +21,66 @@ public class MeshGenerator : MonoBehaviour
         _filter = GetComponent<MeshFilter>();
         _mesh = _filter.mesh = new Mesh();
         _mesh.MarkDynamic();
+
+        _centerPoints = new List<Vector3>();
+        var rng = new Random();
+        for (int i = 0; i < 4; i++)
+        {
+            _centerPoints.Add(new Vector3(
+                (float) rng.NextDouble() * 0.5f + 0.25f, 
+                (float) rng.NextDouble() * 0.5f + 0.25f, 
+                (float) rng.NextDouble() * 0.5f + 0.25f));
+        }
+
+    }
+    
+    private static readonly float3[] CubeVertices =
+    {
+        new float3(0, 0, 0), // 0
+        new float3(0, 1, 0), // 1
+        new float3(1, 1, 0), // 2
+        new float3(1, 0, 0), // 3
+        new float3(0, 0, 1), // 4
+        new float3(0, 1, 1), // 5
+        new float3(1, 1, 1), // 6
+        new float3(1, 0, 1), // 7
+    };
+    
+    private static readonly int2[] EdgeIdToVertices =
+    {
+        new int2(0, 1), // 0
+        new int2(1, 2), // 1
+        new int2(2, 3), // 2
+        new int2(3, 0), // 3
+        new int2(4, 5), // 4
+        new int2(5, 6), // 5
+        new int2(6, 7), // 6
+        new int2(7, 4), // 7
+        new int2(0, 4), // 8
+        new int2(1, 5), // 9
+        new int2(2, 6), // 10
+        new int2(3, 7), // 11
+    };
+
+    float MarchingCubesFunction(Vector3 point)
+    {
+        const float radius = 0.1f;
+        const float radiusSqr = radius * radius;
+
+        // return 0.5f - point.y;
+        float result = 0f;
+        foreach (var center in _centerPoints)
+        {
+            float distSqr = (center - point).sqrMagnitude;
+            if (distSqr == 0f)
+            {
+                result = 1e9f;
+                break;
+            }
+
+            result += radiusSqr / distSqr;
+        }
+        return result - 1f;
     }
 
     /// <summary>
@@ -23,48 +88,78 @@ public class MeshGenerator : MonoBehaviour
     /// </summary>
     private void Update()
     {
-        List<Vector3> sourceVertices = new List<Vector3>
-        {
-            new Vector3(0, 0, 0), // 0
-            new Vector3(0, 1, 0), // 1
-            new Vector3(1, 1, 0), // 2
-            new Vector3(1, 0, 0), // 3
-            new Vector3(0, 0, 1), // 4
-            new Vector3(0, 1, 1), // 5
-            new Vector3(1, 1, 1), // 6
-            new Vector3(1, 0, 1), // 7
-        };
+        const float minCoord = 0.0f;
+        const float maxCoord = 1.0f;
+        const int cubesCount = 30;
+        const float coordStep = (maxCoord - minCoord) / cubesCount;
 
-        //a.k.a. indices
-        int[] sourceTriangles =
-        {
-            0, 1, 2, 2, 3, 0, // front
-            3, 2, 6, 6, 7, 3, // right
-            7, 6, 5, 5, 4, 7, // back
-            0, 4, 5, 5, 1, 0, // left
-            0, 3, 7, 7, 4, 0, // bottom
-            1, 5, 6, 6, 2, 1, // top
-        };
+        var vertices = new List<Vector3>();
+        var triangles = new List<int>();
 
-        List<Vector3> vertices = new List<Vector3>();
-        List<int> triangles = new List<int>();
-
-        // What is going to happen if we don't split the vertices? Check it out by yourself by passing
-        // sourceVertices and sourceTriangles to the mesh.
-        for (int i = 0; i < sourceTriangles.Length; i++)
+        for (var ci = 0; ci < cubesCount; ci++)
         {
-            triangles.Add(vertices.Count);
-            Vector3 vertexPos = sourceVertices[sourceTriangles[i]];
-            
-            //Uncomment for some animation:
-            //vertexPos += new Vector3
-            //(
-            //    Mathf.Sin(Time.time + vertexPos.z),
-            //    Mathf.Sin(Time.time + vertexPos.y),
-            //    Mathf.Sin(Time.time + vertexPos.x)
-            //);
-            
-            vertices.Add(vertexPos);
+            for (var cj = 0; cj < cubesCount; cj++)
+            {
+                for (var ck = 0; ck < cubesCount; ck++)
+                {
+                    float3 cubeStartCoords = new Vector3(
+                        minCoord + ci * coordStep,
+                        minCoord + cj * coordStep,
+                        minCoord + ck * coordStep);
+
+                    var cubeValues = new List<float>();
+                    int caseMask = 0;
+                    for (int vertexId = 0; vertexId < CubeVertices.Length; vertexId++)
+                    {
+                        float3 cubeVertex = CubeVertices[vertexId];
+                        float3 coords = cubeStartCoords + cubeVertex * coordStep;
+                        float value = MarchingCubesFunction(coords);
+                        int caseMaskDelta = (value >= 0 ? 1 : 0) << vertexId;
+                        Assert.IsTrue((caseMask & caseMaskDelta) == 0);
+
+                        if (cubesCount <= 2)
+                        {
+                            Debug.Log($"" +
+                                      $"Cube [{ci} {cj} {ck}]" +
+                                      $"Id: {vertexId}, " +
+                                      $"Coords: {coords}, " +
+                                      $"Value: {value}");
+                        }
+                        
+                        cubeValues.Add(value);
+                        caseMask |= caseMaskDelta;
+                    }
+                    Assert.IsTrue(caseMask < 256);
+
+                    int trianglesCount = MarchingCubes.Tables.CaseToTrianglesCount[caseMask];
+                    var caseVertices = MarchingCubes.Tables.CaseToVertices[caseMask];
+
+                    if (cubesCount == 1)
+                    {
+                        Debug.Log(caseMask);
+                    }
+                    
+                    for (int caseTriangleIdx = 0; caseTriangleIdx < trianglesCount; caseTriangleIdx++)
+                    {
+                        int3 triangleEdges = caseVertices[caseTriangleIdx];
+                        for (int edgeIdx = 0; edgeIdx < 3; edgeIdx++)
+                        {
+                            int edgeId = triangleEdges[edgeIdx];
+                            float3 vertexCoords = cubeStartCoords + InterpolateOnEdge(cubeValues, edgeId) * coordStep;
+                            triangles.Add(vertices.Count);
+                            vertices.Add(vertexCoords);
+                            if (cubesCount <= 2)
+                            {
+                                Debug.Log($"" +
+                                          $"Cube: [{ci} {cj} {ck}]," +
+                                          $"Vertex: {vertexCoords}, " +
+                                          $"Triangle:  {caseTriangleIdx}, " +
+                                          $"Edge: {edgeIdx}");
+                            }
+                        }
+                    }
+                }
+            }
         }
 
         // Here unity automatically assumes that vertices are points and hence will be represented as (x, y, z, 1) in homogenous coordinates
@@ -74,5 +169,22 @@ public class MeshGenerator : MonoBehaviour
 
         // Upload mesh data to the GPU
         _mesh.UploadMeshData(false);
+    }
+    
+    private static float3 InterpolateOnEdge(List<float> cubeValues, int edgeId)
+    {
+        int zeroVertex = EdgeIdToVertices[edgeId].x;
+        int oneVertex = EdgeIdToVertices[edgeId].y;
+        float valueAtZero = cubeValues[zeroVertex];
+        float valueAtOne = cubeValues[oneVertex];
+        Assert.AreNotEqual(valueAtOne >= 0, valueAtZero >= 0);
+        float shift = Math.Abs(valueAtZero / (valueAtOne - valueAtZero));
+//        Debug.Log(shift);
+        Assert.IsTrue(shift >= 0);
+        Assert.IsTrue(shift <= 1.0f);
+        
+        float3 zeroCoords = new float3(CubeVertices[zeroVertex]);
+        float3 oneCoords = new float3(CubeVertices[oneVertex]);
+        return zeroCoords + (oneCoords - zeroCoords) * shift;
     }
 }
