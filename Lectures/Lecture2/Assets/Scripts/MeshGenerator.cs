@@ -13,6 +13,10 @@ public class MeshGenerator : MonoBehaviour
     private Mesh _mesh;
     private List<Vector3> _centerPoints;
 
+    private List<Vector3> _vertices;
+    private List<int> _triangles;
+    private List<Vector3> _normals;
+
     /// <summary>
     /// Executed by Unity upon object initialization. <see cref="https://docs.unity3d.com/Manual/ExecutionOrder.html"/>
     /// </summary>
@@ -32,6 +36,81 @@ public class MeshGenerator : MonoBehaviour
                 (float) rng.NextDouble() * 0.5f + 0.25f));
         }
 
+        _vertices = new List<Vector3>();
+        _triangles = new List<int>();
+        _normals = new List<Vector3>();
+        
+        const float minCoord = 0.0f;
+        const float maxCoord = 1.0f;
+        const int cubesCount = 100;
+        const float coordStep = (maxCoord - minCoord) / cubesCount;
+        
+        for (var ci = 0; ci < cubesCount; ci++)
+        {
+            for (var cj = 0; cj < cubesCount; cj++)
+            {
+                for (var ck = 0; ck < cubesCount; ck++)
+                {
+                    float3 cubeStartCoords = new Vector3(
+                        minCoord + ci * coordStep,
+                        minCoord + cj * coordStep,
+                        minCoord + ck * coordStep);
+
+                    var cubeValues = new List<float>();
+                    int caseMask = 0;
+                    for (int vertexId = 0; vertexId < CubeVertices.Length; vertexId++)
+                    {
+                        float3 cubeVertex = CubeVertices[vertexId];
+                        float3 coords = cubeStartCoords + cubeVertex * coordStep;
+                        float value = MarchingCubesFunction(coords);
+                        int caseMaskDelta = (value >= 0 ? 1 : 0) << vertexId;
+                        Assert.IsTrue((caseMask & caseMaskDelta) == 0);
+                        
+                        if (cubesCount <= 2)
+                        {
+                            Debug.Log($"" +
+                                      $"Cube [{ci} {cj} {ck}]" +
+                                      $"Id: {vertexId}, " +
+                                      $"Coords: {coords}, " +
+                                      $"Value: {value}");
+                        }
+                        
+                        cubeValues.Add(value);
+                        caseMask |= caseMaskDelta;
+                    }
+                    Assert.IsTrue(caseMask < 256);
+
+                    int trianglesCount = MarchingCubes.Tables.CaseToTrianglesCount[caseMask];
+                    var caseVertices = MarchingCubes.Tables.CaseToVertices[caseMask];
+
+                    if (cubesCount == 1)
+                    {
+                        Debug.Log(caseMask);
+                    }
+                    
+                    for (int caseTriangleIdx = 0; caseTriangleIdx < trianglesCount; caseTriangleIdx++)
+                    {
+                        int3 triangleEdges = caseVertices[caseTriangleIdx];
+                        for (int edgeIdx = 0; edgeIdx < 3; edgeIdx++)
+                        {
+                            int edgeId = triangleEdges[edgeIdx];
+                            float3 vertexCoords = cubeStartCoords + InterpolateOnEdge(cubeValues, edgeId) * coordStep;
+                            _triangles.Add(_vertices.Count);
+                            _vertices.Add(vertexCoords);
+                            _normals.Add(ComputeNormal(vertexCoords, coordStep));
+                            if (cubesCount <= 2)
+                            {
+                                Debug.Log($"" +
+                                          $"Cube: [{ci} {cj} {ck}]," +
+                                          $"Vertex: {vertexCoords}, " +
+                                          $"Triangle:  {caseTriangleIdx}, " +
+                                          $"Edge: {edgeIdx}");
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
     
     private static readonly float3[] CubeVertices =
@@ -62,7 +141,7 @@ public class MeshGenerator : MonoBehaviour
         new int2(3, 7), // 11
     };
 
-    float MarchingCubesFunction(Vector3 point)
+    private float MarchingCubesFunction(Vector3 point)
     {
         const float radius = 0.1f;
         const float radiusSqr = radius * radius;
@@ -88,84 +167,10 @@ public class MeshGenerator : MonoBehaviour
     /// </summary>
     private void Update()
     {
-        const float minCoord = 0.0f;
-        const float maxCoord = 1.0f;
-        const int cubesCount = 30;
-        const float coordStep = (maxCoord - minCoord) / cubesCount;
-
-        var vertices = new List<Vector3>();
-        var triangles = new List<int>();
-
-        for (var ci = 0; ci < cubesCount; ci++)
-        {
-            for (var cj = 0; cj < cubesCount; cj++)
-            {
-                for (var ck = 0; ck < cubesCount; ck++)
-                {
-                    float3 cubeStartCoords = new Vector3(
-                        minCoord + ci * coordStep,
-                        minCoord + cj * coordStep,
-                        minCoord + ck * coordStep);
-
-                    var cubeValues = new List<float>();
-                    int caseMask = 0;
-                    for (int vertexId = 0; vertexId < CubeVertices.Length; vertexId++)
-                    {
-                        float3 cubeVertex = CubeVertices[vertexId];
-                        float3 coords = cubeStartCoords + cubeVertex * coordStep;
-                        float value = MarchingCubesFunction(coords);
-                        int caseMaskDelta = (value >= 0 ? 1 : 0) << vertexId;
-                        Assert.IsTrue((caseMask & caseMaskDelta) == 0);
-
-                        if (cubesCount <= 2)
-                        {
-                            Debug.Log($"" +
-                                      $"Cube [{ci} {cj} {ck}]" +
-                                      $"Id: {vertexId}, " +
-                                      $"Coords: {coords}, " +
-                                      $"Value: {value}");
-                        }
-                        
-                        cubeValues.Add(value);
-                        caseMask |= caseMaskDelta;
-                    }
-                    Assert.IsTrue(caseMask < 256);
-
-                    int trianglesCount = MarchingCubes.Tables.CaseToTrianglesCount[caseMask];
-                    var caseVertices = MarchingCubes.Tables.CaseToVertices[caseMask];
-
-                    if (cubesCount == 1)
-                    {
-                        Debug.Log(caseMask);
-                    }
-                    
-                    for (int caseTriangleIdx = 0; caseTriangleIdx < trianglesCount; caseTriangleIdx++)
-                    {
-                        int3 triangleEdges = caseVertices[caseTriangleIdx];
-                        for (int edgeIdx = 0; edgeIdx < 3; edgeIdx++)
-                        {
-                            int edgeId = triangleEdges[edgeIdx];
-                            float3 vertexCoords = cubeStartCoords + InterpolateOnEdge(cubeValues, edgeId) * coordStep;
-                            triangles.Add(vertices.Count);
-                            vertices.Add(vertexCoords);
-                            if (cubesCount <= 2)
-                            {
-                                Debug.Log($"" +
-                                          $"Cube: [{ci} {cj} {ck}]," +
-                                          $"Vertex: {vertexCoords}, " +
-                                          $"Triangle:  {caseTriangleIdx}, " +
-                                          $"Edge: {edgeIdx}");
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
         // Here unity automatically assumes that vertices are points and hence will be represented as (x, y, z, 1) in homogenous coordinates
-        _mesh.SetVertices(vertices);
-        _mesh.SetTriangles(triangles, 0);
-        _mesh.RecalculateNormals();
+        _mesh.SetVertices(_vertices);
+        _mesh.SetNormals(_normals);
+        _mesh.SetTriangles(_triangles, 0);
 
         // Upload mesh data to the GPU
         _mesh.UploadMeshData(false);
@@ -186,5 +191,17 @@ public class MeshGenerator : MonoBehaviour
         float3 zeroCoords = new float3(CubeVertices[zeroVertex]);
         float3 oneCoords = new float3(CubeVertices[oneVertex]);
         return zeroCoords + (oneCoords - zeroCoords) * shift;
+    }
+
+    private float3 ComputeNormal(float3 point, float coordStep)
+    {
+        float3 dx = new Vector3(coordStep / 10f, 0f, 0f);
+        float3 dy = new Vector3(0f, coordStep / 10f, 0f);
+        float3 dz = new Vector3(0f, 0f, coordStep / 10f);
+        return new Vector3(
+            MarchingCubesFunction(point - dx) - MarchingCubesFunction(point + dx),
+            MarchingCubesFunction(point - dy) - MarchingCubesFunction(point + dy),
+            MarchingCubesFunction(point - dz) - MarchingCubesFunction(point + dz)
+        ).normalized;
     }
 }
