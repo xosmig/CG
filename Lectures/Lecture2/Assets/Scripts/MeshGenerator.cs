@@ -42,7 +42,7 @@ public class MeshGenerator : MonoBehaviour
         
         const float minCoord = 0.0f;
         const float maxCoord = 1.0f;
-        const int cubesCount = 100;
+        const int cubesCount = 30;
         const float coordStep = (maxCoord - minCoord) / cubesCount;
         
         for (var ci = 0; ci < cubesCount; ci++)
