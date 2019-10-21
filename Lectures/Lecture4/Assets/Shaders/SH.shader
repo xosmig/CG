@@ -42,7 +42,7 @@
                 return o;
             }
             
-            // (L=1; M=1), (L=1; M=0), (L=1; M=-1), (L=1, M=1)
+            // (L=1; M=1), (L=1; M=0), (L=1; M=-1), (L=0, M=0)
             uniform half4 SH_0_1_r;
             uniform half4 SH_0_1_g;
             uniform half4 SH_0_1_b;
