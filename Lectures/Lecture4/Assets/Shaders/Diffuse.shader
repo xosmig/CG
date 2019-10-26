@@ -111,6 +111,7 @@ Shader "0_Custom/Diffuse"
             
                 float3 res = float3(0, 0, 0);
                 uint seed = 42424217;
+                float diffuseNorm = 2 / sqrt(2);
                 
                 if (diffusePower > 0) {
                     for (int j = 0; j < sampleCount; j++) {
@@ -140,7 +141,7 @@ Shader "0_Custom/Diffuse"
                         half4 skyData = UNITY_SAMPLE_TEXCUBE_LOD(unity_SpecCube0, lightDirection, 0);
                         half3 skyColor = DecodeHDR (skyData, unity_SpecCube0_HDR);
                         
-                        res += diffusePower * _DiffuseColor * skyColor * dot(i.normal, lightDirection) / sampleCount;
+                        res += diffusePower * _DiffuseColor * skyColor * dot(i.normal, lightDirection) * diffuseNorm / sampleCount;
                     }
                 }
                 
