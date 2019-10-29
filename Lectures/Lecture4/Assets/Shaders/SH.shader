@@ -68,7 +68,7 @@
                 res.g = dot(SH_0_1_g, normal);
                 res.b = dot(SH_0_1_b, normal);
                 
-                half4 vB = normal.xyzz * normal.yzxz;
+                half4 vB = half4(normal.xyx * normal.yzz, 3 * pow2(normal.z) - 1);
                 res.r += dot(SH_2_r, vB);
                 res.g += dot(SH_2_g, vB);
                 res.b += dot(SH_2_b, vB);
@@ -95,6 +95,7 @@
             {
                 float3 normal = normalize(i.normal);
                 
+                //return half4(maprg(SH_3_Order(float4(normal, 1))), 1);
                 return half4(SH_3_Order(float4(normal, 1)), 1);
             }
             ENDCG

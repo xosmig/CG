@@ -112,8 +112,9 @@
                     diffuse += sample * max(attenuation, 0);
                     specular += sample * pSpecular;
                 }
-                specular = (specular / sumPSpecular) * UNITY_PI / 2;
-                diffuse = (diffuse / sumPDiffuse) * UNITY_PI / 2;
+                // Multiply by half-sphere area and by density function.
+                specular = (specular / sumPSpecular) * (2 * UNITY_PI) * (1 / UNITY_PI);
+                diffuse = (diffuse / sumPDiffuse) * (2 * UNITY_PI) * (1 / UNITY_PI);
                 
                 return half4(lerp(_BaseColor.rgb * diffuse, specular, _Metallic), 1);
             }

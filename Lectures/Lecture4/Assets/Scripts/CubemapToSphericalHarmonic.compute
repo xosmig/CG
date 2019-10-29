@@ -20,7 +20,7 @@ RWStructuredBuffer<float4> SH_2_b;
 
 RWStructuredBuffer<float4> SH_2_rgb;
 
-TextureCube<half4> _Env;
+TextureCube<half3> _Env;
 SamplerState samplerLinearRepeat;
 
 uint Hash(uint s)
@@ -34,15 +34,37 @@ uint Hash(uint s)
     return s;
 }
 
-float Random(uint seed)
+float Random(inout uint seed)
 {
-    return float(Hash(seed)) / 4294967295.0; // 2^32-1
+    seed = Hash(seed);
+    return seed / 4294967295.0; // 2^32-1
+}
+
+float3 RandomDirection(inout uint seed)
+{
+    float z = Random(seed) * 2 - 1;
+    float ang = Random(seed) * 2 * PI;
+    float xyLen = sqrt(1 - z * z);
+    return float3(cos(ang) * xyLen, sin(ang) * xyLen, z);
 }
 
 float3 SampleColor(float3 direction)
 {   
-    float4 tex = _Env.SampleLevel(samplerLinearRepeat, direction, 0);
+    float3 tex = _Env.SampleLevel(samplerLinearRepeat, direction, 0);
     return tex.rgb;
+    
+    //float res = 0.5;
+    //float res = direction.x;
+    //float res = max(0, direction.x);
+    //float res = max(0, direction.y);
+    //float res = max(0, dot(direction, float3(sqrt(2) / 2, sqrt(2) / 2, 0)));
+    //float res = max(0, direction.z);
+    //return float3(res, res, res);
+}
+
+float pow2(float f)
+{
+    return f * f;
 }
 
 [numthreads(1024, 1, 1)]
@@ -50,6 +72,8 @@ void ComputeHarmonics(uint id : SV_DispatchThreadID)
 {
     const int THREADS = 1024;
     const int SAMPLES = 10;
+    // Loop variable
+    int c;
     
     // See SH.shader for more details
     float4 results[7] = {
@@ -64,23 +88,78 @@ void ComputeHarmonics(uint id : SV_DispatchThreadID)
         float4(0, 0, 0, 0), // SH_2_rgb
     };
     
-    // TASK: project light from _Env to spherical harmonic coefficients;
-    // Multiply that by the same polynom coeffients, because they appear in the projection of max(0, cos(theta)) 
-    // and store them in results[]
+    const float sqrtPI = sqrt(PI); // 1.77245385090551602729;
+    const float sqrt3 = sqrt(3.0);
+    const float sqrt5 = sqrt(5.0);
+    const float sqrt15 = sqrt(15.0);
     
-    for (int c = 0; c < 3; c++)
+    const float4 tc01 = float4(
+        - sqrt3 / (2 * sqrtPI), // tc1_x
+        - sqrt3 / (2 * sqrtPI),  // tc1_y
+        sqrt3 / (2 * sqrtPI), // tc1_z
+        1 / (2 * sqrtPI) // tc0
+    );
+    const float4 tc2_1 = float4(
+        sqrt15 / (2 * sqrtPI), // xy
+        - sqrt15 / (2 * sqrtPI),  // yz
+        - sqrt15 / (2 * sqrtPI), // xz
+        sqrt5 / (4 * sqrtPI) // 3z^ - 1
+    );
+    const float tc2_2 = sqrt15 / (4 * sqrtPI); // x^2 - y^2
+    
+    float4 cL[7] = {
+        float4(0, 0, 0, 0), // 0_1_r
+        float4(0, 0, 0, 0), // 0_1_g
+        float4(0, 0, 0, 0), // 0_1_b
+        
+        float4(0, 0, 0, 0), // 2_1_r
+        float4(0, 0, 0, 0), // 2_1_g
+        float4(0, 0, 0, 0), // 2_1_b
+        
+        float4(0, 0, 0, 0), // 2_2_rgb
+    };
+
+    uint seed = 31 * id + 127;
+    for (int i = 0; i < SAMPLES; i++) 
     {
-        // Precomputing coefficients of max(0, cos(theta) for L=0
-        results[c].w *= PI; 
-        // Precomputing coefficients of max(0, cos(theta) for L=1
-        results[c].xyz *= PI * 2 / 3;
+        float3 direction = RandomDirection(seed);
+        float3 sample = SampleColor(direction);
+        
+        for (c = 0; c < 3; c++) 
+        {
+            results[c] += tc01 * float4(direction, 1) * sample[c] / SAMPLES;
+        }
+        
+        float4 vB = float4(direction.xyx * direction.yzz, 3 * pow2(direction.z) - 1);
+        for (c = 0; c < 3; c++)
+        {
+            results[3 + c] += tc2_1 * vB * sample[c] / SAMPLES;
+        }
+        
+        float vC = pow2(direction.x) - pow2(direction.y);
+        results[6] += float4(tc2_2 * vC * sample.rgb / SAMPLES, 0);
     }
     
-    for (c = 0; c < 4; c++)
+    for (c = 0; c < 7; c++)
     {
-        // Precomputing coefficients of max(0, cos(theta) for L=2
-        results[3 + c] *= PI / 4;
-    } 
+        // To get integral values from expected values, we need to multiply them by the sphere area.
+        results[c] *= 4 * PI;
+        // Multiply by density function, which is 1 / (integral_{Omega} max(0, cos phi)).
+        results[c] *= 1 / PI;
+    }
+    
+    for (c = 0; c < 3; c++)
+    {
+        results[c].w *= tc01.w * PI;
+        results[c].xyz *= tc01.xyz * (2 * PI / 3);
+    }
+    
+    for (c = 0; c < 3; c++)
+    {
+        results[3 + c] = tc2_1 * (PI / 4) * cL[3 + c];
+    }
+    
+    results[6] = tc2_2 * (PI / 4) * cL[6];
     
     SH_0_1_r[id] = results[0];
     SH_0_1_g[id] = results[1];
@@ -88,6 +167,5 @@ void ComputeHarmonics(uint id : SV_DispatchThreadID)
     
     SH_2_r[id] = results[3];
     SH_2_g[id] = results[4];
-    SH_2_b[id] = results[5];    
-    
+    SH_2_b[id] = results[5];
 }
