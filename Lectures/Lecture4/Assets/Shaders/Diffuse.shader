@@ -99,7 +99,7 @@ Shader "0_Custom/Diffuse"
 
             fixed4 frag (v2f i) : SV_Target
             {
-                const int sampleCount = 1000;
+                const int sampleCount = 500;
                 const float PI = 3.14159;
                 const float3 yAxis = float3(0, 1, 0);
                 

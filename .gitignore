@@ -6,6 +6,9 @@
 Assets/AssetStoreTools*
 
 .idea
+Textures
+Textures.meta
+Logs
 
 # Visual Studio cache directory
 .vs/
