@@ -2,7 +2,9 @@
 {
     Properties
     {
-        _BaseColor ("Color", Color) = (0, 0, 0, 1)
+        _BaseColor ("BaseColor", Color) = (1, 1, 1, 1)
+        _Glossiness ("Glossiness", Float) = 0
+        _SpecularMipLevel ("SpecularMipLevel", Int) = 0
     }
     SubShader
     {
@@ -32,6 +34,8 @@
             };
 
             float4 _BaseColor;
+            float _Glossiness;
+            float _SpecularMipLevel;
             
             v2f vert (appdata v)
             {
@@ -93,10 +97,14 @@
 
             fixed4 frag (v2f i) : SV_Target
             {
-                float3 normal = normalize(i.normal);
+                const float3 normal = normalize(i.normal);
+                const float3 viewDirection = normalize(UnityWorldSpaceViewDir(i.pos));
+                const float3 reflectDirection = reflect(-viewDirection, i.normal);
                 
-                //return half4(maprg(SH_3_Order(float4(normal, 1))), 1);
-                return half4(SH_3_Order(float4(normal, 1)), 1);
+                float3 diffuse = SH_3_Order(float4(normal, 1));
+                float4 specular = UNITY_SAMPLE_TEXCUBE_LOD(unity_SpecCube0, reflectDirection, _SpecularMipLevel);
+                
+                return half4(lerp(_BaseColor.rgb * diffuse, specular.rgb, _Glossiness), 1);
             }
             ENDCG
         }
