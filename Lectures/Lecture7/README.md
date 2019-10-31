@@ -9,6 +9,8 @@ This is not the main goal of the assignment.
 5. Send me a screenshot of your results at mischapanin@gmail.com along with your code.
 6. The e-mail should have the following topic: __HSE.CG.<your_name>.<your_last_name>.HW7__
 
+P.S. I recommend using a low-curvature mesh for this shader. A simple quad should be perfect for that.
+
 **Bonus points:** 
 +10% for cone mapping
 +10% for soft self-shadowing
