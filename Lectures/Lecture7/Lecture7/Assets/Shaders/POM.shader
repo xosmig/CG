@@ -151,7 +151,7 @@
                 //uv = i.uv + (tViewDir.xy / (-tViewDir.z) * (_MaxHeight - getHeight(i.uv)));
                 
                 // normal mapping
-                half3 tnormal = UnpackNormal(tex2Dlod(_NormalMap, float4(uv, dx, dy)));
+                half3 tnormal = UnpackNormal(tex2D(_NormalMap, uv, dx, dy));
                 half3 worldNormal = normalize(mul(tspaceToWorldMat, tnormal));
                 //half3 worldNormal = float3(0, 1, 0);
                 
@@ -180,10 +180,9 @@
                 half3 diffuseLight = cosTheta * _LightColor0 * max(0, 1 - shadow);
 
                 // return resulting color
-                float3 texColor = tex2Dlod(_MainTex, float4(uv, dx, dy));
+                float3 texColor = tex2D(_MainTex, uv, dx, dy);
                 outColor = half4((diffuseLight + _AmbientLight) * texColor, 0);
                 outDepth = LinearEyeDepthToOutDepth(LinearEyeDepth(i.clip.z) + depthDif);
-                //outDepth = i.clip.z;
             }
             ENDCG
         }
